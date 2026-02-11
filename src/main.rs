@@ -1,46 +1,27 @@
 use axum::{
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{get, post},
-    Json, Router,
+    routing::any,
+    Router,
 };
-use serde::{Deserialize, Serialize};
+use reqwest::Client;
+use std::net::SocketAddr;
+
+use crate::handler::proxy_handler;
+mod handler;
+
+const DBG_MODE: bool = true;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    let client = Client::new(); // for NestJS
 
     let app = Router::new()
-        .route("/", get(root))
-        .route("/users", post(create_user));
+        .route("/{*path}", any(proxy_handler)) // Catch every route
+        .with_state(client);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
-    tracing::debug!("listening on {}", listener.local_addr().unwrap());
-    let _ = axum::serve(listener, app).await;
+    let addr = SocketAddr::from(([127, 0, 0, 1], 4000));
+    println!("\n\t󰞀 Fanouni Security Guard running on {}", addr);
+    
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
 
-async fn root() -> &'static str {
-    "Hello, World!"
-}
-
-async fn create_user(Json(payload): Json<CreateUser>) -> impl IntoResponse {
-    let user = User {
-        id: 1337,
-        username: payload.username,
-    };
-
-    (StatusCode::CREATED, Json(user))
-}
-
-#[derive(Deserialize)]
-struct CreateUser {
-    username: String,
-}
-
-#[derive(Serialize)]
-struct User {
-    id: u64,
-    username: String,
-}

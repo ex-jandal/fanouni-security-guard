@@ -5,12 +5,13 @@ edition = "2024"
 
 [dependencies]
 tokio = { version = "1.49.0", features = ["full"] }
+
 axum =  "0.8.8"
 axum-extra ="0.12.5"
-ring = "0.17.14"
-rustls = "0.23.36"
+
+tower-http = { version = "0.6.8", features = ["cors"] }
 reqwest = "0.13.2"
 serde = { version = "1.0.228", features = ["derive"] }
 
-tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+ring = "0.17.14"
+rustls = "0.23.36"

@@ -6,6 +6,7 @@ use axum::{
 };
 use reqwest::Client;
 
+use crate::verification::verify_signature;
 use crate::DBG_MODE;
 
 pub async fn proxy_handler(
@@ -30,7 +31,31 @@ pub async fn proxy_handler(
         .unwrap_or("");
     let target_url = format!("http://127.0.0.1:3000{}", path_query);
 
-    // TODO: >>> Here i should handle the hashing <<< 
+    // verifiy signatures of the requests
+    let signature = headers
+        .get("x-fanouni-signature")
+        .and_then(|h| h.to_str().ok());
+
+    if  method == Method::POST || 
+        method == Method::PUT  || 
+        method == Method::GET  {
+
+        match signature {
+            Some(sig) if verify_signature(&body, sig) => {
+                if DBG_MODE {
+                    dbg!(sig);
+                    println!("󱎚  Integrity Verified");
+                }
+            }
+            _ => {
+                if DBG_MODE {
+                    println!("󱙱  Signature mismatch or missing!");
+                }
+                return (StatusCode::UNAUTHORIZED, "Invalid Integrity Signature")
+                    .into_response();
+            }
+        }
+    }
 
     // Direct to NestJS
     let response = client

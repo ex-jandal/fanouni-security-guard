@@ -5,13 +5,32 @@ use axum::{
 use reqwest::Client;
 use std::net::SocketAddr;
 
-use crate::handler::proxy_handler;
+use handler::proxy_handler;
 mod handler;
+mod verification;
+
+use once_cell::sync::Lazy;
+use dotenv::dotenv;
+use std::env;
+
+/// SIG_KEY value from .env file..
+static SIG_KEY: Lazy<String> = Lazy::new(|| {
+    env::var("SIG_KEY")
+        .expect("SIG_KEY must be set in `.env` file")
+});
 
 const DBG_MODE: bool = true;
 
 #[tokio::main]
 async fn main() {
+    // read .env file..
+    dotenv()
+        .expect("something goes wrong with .env file. maybe, you should create it");
+
+    if DBG_MODE {
+        dbg!(&SIG_KEY.as_str());
+    }
+
     let client = Client::new(); // for NestJS
 
     let app = Router::new()

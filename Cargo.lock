@@ -8,11 +8,11 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "axum-extra",
+ "dotenv",
  "hex",
  "hmac",
+ "once_cell",
  "reqwest",
- "ring",
- "rustls",
  "serde",
  "sha2",
  "tokio",
@@ -268,6 +268,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "dotenv"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
 name = "dunce"
@@ -1045,7 +1051,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c665f33d38cea657d9614f766881e4d510e0eda4239891eea56b4cadcf01801b"
 dependencies = [
  "aws-lc-rs",
- "log",
  "once_cell",
  "rustls-pki-types",
  "rustls-webpki",

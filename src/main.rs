@@ -15,13 +15,13 @@ use tracing::info;
 use dotenv::dotenv;
 use std::env;
 
-/// SIG_KEY value from .env file..
+// SIG_KEY value from .env file..
 static SIG_KEY: Lazy<String> = Lazy::new(|| {
     env::var("SIG_KEY")
         .expect("SIG_KEY must be set in `.env` file")
 });
 
-// deprecated feature
+/// deprecated feature
 const DBG_MODE: bool = false;
 
 #[tokio::main]

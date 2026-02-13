@@ -19,11 +19,12 @@ pub async fn proxy_handler(
 
 
     if DBG_MODE {
-        dbg!(&method, 
-            &uri, 
-            &headers, 
-            &body
-        );
+        println!(
+"------------   New Request ------------
+method  = {method:#?}
+uri     = {uri:#?}
+headers = {headers:#?}
+body    = {body:#?}");
     }
 
     let path_query = uri.path_and_query()
@@ -40,16 +41,22 @@ pub async fn proxy_handler(
         method == Method::PUT  || 
         method == Method::GET  {
 
+        if DBG_MODE {
+            println!("\n---------- 󱎚  Check Signature ----------");
+        }
+
         match signature {
             Some(sig) if verify_signature(&body, sig) => {
                 if DBG_MODE {
-                    dbg!(sig);
-                    println!("󱎚  Integrity Verified");
+                    println!("header_sig = {}", sig);
+                    println!("  Integrity Verified");
                 }
             }
             _ => {
                 if DBG_MODE {
-                    println!("󱙱  Signature mismatch or missing!");
+                    println!("  Signature mismatch or missing!");
+                    println!("\nresponse_status = {:#?}", StatusCode::UNAUTHORIZED);
+                    println!("---------- End of the Request ----------");
                 }
                 return (StatusCode::UNAUTHORIZED, "Invalid Integrity Signature")
                     .into_response();
@@ -70,8 +77,20 @@ pub async fn proxy_handler(
             let status = res.status();
             let headers = res.headers().clone();
             let body = res.bytes().await.unwrap_or_default();
+
+            if DBG_MODE {
+                println!("response_status = {status:#?}");
+                println!("---------- End of the Request ----------\n\n");
+            }
+
             (status, headers, body).into_response()
         }
-        Err(_) => (StatusCode::BAD_GATEWAY, "NestJS is unreachable").into_response()
+        Err(_) => {
+            if DBG_MODE {
+                println!("\nresponse_status = {:#?}", StatusCode::BAD_GATEWAY);
+                println!("---------- End of the Request ----------\n\n");
+            }
+            (StatusCode::BAD_GATEWAY, "NestJS is unreachable").into_response()
+        }
     }
 }

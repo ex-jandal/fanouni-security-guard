@@ -25,7 +25,7 @@ const DBG_MODE: bool = false;
 async fn main() {
     // read .env file..
     dotenv()
-        .expect("something goes wrong with .env file. maybe, you should create it");
+        .expect("something goes wrong with `.env` file. maybe, you should create it");
 
     if DBG_MODE {
         dbg!(&SIG_KEY.as_str());
@@ -38,7 +38,10 @@ async fn main() {
         .with_state(client);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 4000));
-    println!("\n\t󰞀 Fanouni Security Guard running on {}", addr);
+    println!("\n\t󰞀  Fanouni Security Guard running on {},\n\t  with{} Debugging Outputs", 
+        addr, 
+        if DBG_MODE {""} else {"out"}
+    );
     
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();

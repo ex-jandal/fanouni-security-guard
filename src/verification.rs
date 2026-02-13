@@ -14,7 +14,7 @@ pub fn verify_signature(body: &[u8], signature_hex: &str) -> bool {
     let code_bytes = result.into_bytes();
 
     if DBG_MODE {
-        dbg!(hex::encode(code_bytes));
+        println!("  real_sig = {}", hex::encode(code_bytes));
     }
     
     if let Ok(expected_bytes) = hex::decode(signature_hex) {

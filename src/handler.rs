@@ -64,6 +64,10 @@ body    = {body:#?}");
         }
     }
 
+    if DBG_MODE {
+        println!("\n--------   Redirect to NestJS ---------");
+    }
+
     // Direct to NestJS
     let response = client
         .request(method, &target_url)
@@ -79,14 +83,16 @@ body    = {body:#?}");
             let body = res.bytes().await.unwrap_or_default();
 
             if DBG_MODE {
-                println!("response_status = {status:#?}");
+                println!("response = {:#?}", &body);
+                println!("\nresponse_status = {status:#?}");
                 println!("---------- End of the Request ----------\n\n");
             }
 
             (status, headers, body).into_response()
         }
-        Err(_) => {
+        Err(res) => {
             if DBG_MODE {
+                println!("response = {:#?}", res);
                 println!("\nresponse_status = {:#?}", StatusCode::BAD_GATEWAY);
                 println!("---------- End of the Request ----------\n\n");
             }

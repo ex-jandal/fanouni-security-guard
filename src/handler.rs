@@ -8,6 +8,7 @@ use reqwest::Client;
 use tracing::{info, debug};
 
 use crate::crypto::hashing::verify_signature;
+use crate::crypto::signature::sign_artwork;
 use crate::director::redirect_to_backend;
 use crate::DBG_MODE;
 
@@ -82,6 +83,23 @@ body    = {body:#?}");
         }
     }
 
+    let mut final_headers = headers.clone();
+
+    // apply the "Copyright Seal"
+    if uri.path().contains("/api/post/create") && method == Method::POST {
+        let copyright_sig = sign_artwork(&body);
+        
+        // NestJS should save this header in the database
+        final_headers.insert(
+            "X-Fanouni-Copyright-Seal", 
+            copyright_sig.parse().unwrap()
+        );
+
+        debug!("󰏘  artwork notarized with seal: {}...", &copyright_sig[0..10]);
+        if DBG_MODE {
+            println!("󰏘  artwork notarized with seal: {}...", &copyright_sig[0..10]);
+        }
+    }
 
     // deprecated feature
     if DBG_MODE {
@@ -89,7 +107,7 @@ body    = {body:#?}");
     }
 
     // Direct to NestJS
-    let response = redirect_to_backend(method, target_url, headers, body, client).await;
+    let response = redirect_to_backend(method, target_url, final_headers, body, client).await;
     info!("󰅑  Finish Request");
 
     response

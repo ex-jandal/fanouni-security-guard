@@ -6,8 +6,9 @@ use reqwest::Client;
 use std::net::SocketAddr;
 
 use handler::proxy_handler;
+
 mod handler;
-mod verification;
+mod crypto;
 mod director;
 
 use once_cell::sync::Lazy;

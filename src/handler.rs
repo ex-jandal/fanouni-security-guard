@@ -7,7 +7,7 @@ use axum::{
 use reqwest::Client;
 use tracing::{info, debug};
 
-use crate::verification::verify_signature;
+use crate::crypto::hashing::verify_signature;
 use crate::director::redirect_to_backend;
 use crate::DBG_MODE;
 

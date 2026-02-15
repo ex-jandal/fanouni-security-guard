@@ -58,10 +58,12 @@ body    = {body:#?}");
     let mut final_headers = headers.clone();
 
     // apply the "Copyright Seal"
+    // FIXME: i should find the right path
     if uri.path().contains("/api/post/create") && method == Method::POST {
+        // FIXME: should send the file not the body
         let copyright_sig = sign_artwork(&body);
         
-        // NestJS should save this header in the database
+        // INFO: NestJS should save this header in the database
         final_headers.insert(
             "X-Fanouni-Copyright-Seal", 
             copyright_sig.parse().unwrap()

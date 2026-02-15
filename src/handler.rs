@@ -95,14 +95,17 @@ body    = {body:#?}");
             copyright_sig.parse().unwrap()
         );
 
-        debug!("󰏘  artwork notarized with seal: {}...", &copyright_sig[0..10]);
+        info!("󰏘  artwork notarized with seal: {}...", &copyright_sig[0..10]);
         if DBG_MODE {
             println!("󰏘  artwork notarized with seal: {}...", &copyright_sig[0..10]);
         }
     }
 
+    debug!("final_headers = {:#?}", final_headers);
+
     // deprecated feature
     if DBG_MODE {
+        println!("final_headers = {:#?}", final_headers);
         println!("\n--------   Redirect to NestJS ---------");
     }
 

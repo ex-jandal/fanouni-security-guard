@@ -16,6 +16,12 @@ use tracing::info;
 use dotenv::dotenv;
 use std::env;
 
+// HMAC_KEY value from .env file..
+static HMAC_KEY: Lazy<String> = Lazy::new(|| {
+    env::var("HMAC_KEY")
+        .expect("HMAC_KEY must be set in `.env` file")
+});
+
 // SIG_KEY value from .env file..
 static SIG_KEY: Lazy<String> = Lazy::new(|| {
     env::var("SIG_KEY")

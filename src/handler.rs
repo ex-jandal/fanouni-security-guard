@@ -99,9 +99,8 @@ body    = {body:#?}");
         if DBG_MODE {
             println!("󰏘  artwork notarized with seal: {}...", &copyright_sig[0..10]);
         }
+        debug!("final_headers = {:#?}", final_headers);
     }
-
-    debug!("final_headers = {:#?}", final_headers);
 
     // deprecated feature
     if DBG_MODE {

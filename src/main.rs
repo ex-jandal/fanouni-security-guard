@@ -5,16 +5,22 @@ use axum::{
 use reqwest::Client;
 use std::net::SocketAddr;
 
+use once_cell::sync::Lazy;
+use tracing::info;
+use tracing_subscriber::EnvFilter;
+use dotenv::dotenv;
+use std::env;
+use clap::Parser;
+
 use handler::proxy_handler;
+use command_args::Args;
+
+use crate::crypto::generate_keys;
 
 mod handler;
 mod crypto;
 mod director;
-
-use once_cell::sync::Lazy;
-use tracing::info;
-use dotenv::dotenv;
-use std::env;
+mod command_args;
 
 // HMAC_KEY value from .env file..
 static HMAC_KEY: Lazy<String> = Lazy::new(|| {
@@ -37,14 +43,29 @@ async fn main() {
     dotenv()
         .expect("something goes wrong with `.env` file. maybe, you should create it");
 
-    tracing_subscriber::fmt::init();
+    let args = Args::parse();
+    if args.generate_keys {
+        generate_keys();
+        return; 
+    }
+
+    if args.debug {
+        let subscriber = tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::new("debug"))
+            .with_target(true)
+            .finish();
+
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("setting default subscriber failed");
+    }
+
     let client = Client::new(); // for NestJS
 
     let app = Router::new()
         .route("/{*path}", any(proxy_handler)) // Catch every route
         .with_state(client);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 4000));
+    let addr = SocketAddr::from(([127, 0, 0, 1], args.port));
 
     info!("running on {}", addr);
     println!("\t󰞀  Fanouni Security Guard running on {},\n\t  with{} Debugging Outputs", 
@@ -55,4 +76,3 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
-

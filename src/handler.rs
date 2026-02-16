@@ -1,81 +1,138 @@
 use axum::{
-    body::Bytes,
-    extract::State,
-    http::{Method, HeaderMap, StatusCode, Uri},
-    response::IntoResponse,
+    body::Body, 
+    extract::{FromRequest, 
+        Multipart,
+        Request,
+        State
+    },
+    http::{
+        HeaderMap, 
+        Method, 
+        StatusCode, 
+        Uri
+    }, 
+    response::IntoResponse
 };
-use reqwest::Client;
+use reqwest::{Client, header, multipart::{Form, Part}};
 use tracing::{info, debug};
 
-use crate::crypto::hashing::verify_signature;
+use crate::{crypto::hashing::verify_signature, director::forward_multipart};
 use crate::crypto::signature::sign_artwork;
-use crate::director::redirect_to_backend;
+use crate::director::forward_json;
 
 pub async fn proxy_handler(
     State(client): State<Client>,
     method: Method,
     uri: Uri,
     headers: HeaderMap,
-    body: Bytes,
+    req: Request<Body>,
 ) -> impl IntoResponse {
+    info!(" Receive a New Request: {}", uri.path());
 
-    info!("  Receive a New Request");
-    debug!("
-method  = {method:#?}
-uri     = {uri:#?}
-headers = {headers:#?}
-body    = {body:#?}");
-
-    let path_query = uri.path_and_query()
-        .map(|pq| pq.as_str())
+    let content_type = headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|h| h.to_str().ok())
         .unwrap_or("");
-    let target_url = format!("http://127.0.0.1:3000{}", path_query);
 
-    // verifiy signatures of the requests
     let signature = headers
         .get("x-fanouni-signature")
         .and_then(|h| h.to_str().ok());
 
-    if  method == Method::POST || 
-        method == Method::PUT  || 
-        method == Method::GET  {
+    if content_type.contains("multipart/form-data") {
+        match Multipart::from_request(req, &()).await {
+            Ok(mut multipart) => {
+                let mut new_form = Form::new();
+                let mut file_bytes: Vec<u8> = Vec::new();
+                let mut file_name: Option<String> = None;
+                let mut file_mime: Option<String> = None;
 
-        match signature {
-            Some(sig) if verify_signature(&body, sig) => {
-                info!("  Integrity Verified");
-            }
-            _ => {
-                info!("  Signature mismatch or missing!");
-                info!("response_status = {:#?}", StatusCode::UNAUTHORIZED);
-                info!("󰅑  Finish Request");
+                debug!("request = {:#?}", multipart);
+                
+                // Find file
+                while let Ok(Some(field)) = multipart.next_field().await {
+                    let name = field.name().unwrap_or("file").to_string();
+                    
+                    if name == "file" || field.file_name().is_some() {
+                        // INFO: This is our artwork file
+                        file_name = field.file_name().map(|s| s.to_string());
+                        file_mime = field.content_type().map(|s| s.to_string());
+                        file_bytes = field.bytes().await.unwrap_or_default().to_vec();
+                    } else {
+                        // INFO: This is just text metadata (title, description, etc.)
+                        let data = field.bytes().await.unwrap_or_default();
+                        let text_val = String::from_utf8_lossy(&data).to_string();
+                        new_form = new_form.text(name, text_val);
+                    }
+                }
 
-                return (StatusCode::UNAUTHORIZED, "Invalid Integrity Signature")
-                    .into_response();
+                match signature {
+                    Some(sig) if verify_signature(&file_bytes, sig) => {
+                        info!("  Integrity Verified for artwork file");
+                    }
+                    _ => {
+                        info!("  Signature mismatch or missing!");
+                        return (StatusCode::UNAUTHORIZED, "Invalid Integrity Signature").into_response();
+                    }
+                }
+
+                debug!("file name is a {}", file_name.clone().unwrap_or("Null".to_string()));
+                debug!("file mime is a {}", file_mime.clone().unwrap_or("Null".to_string()));
+
+                let mut final_headers = headers.clone();
+                if uri.path().contains("/post/create") && !file_bytes.is_empty() {
+                    // Sign ONLY the raw file bytes
+                    let copyright_sig = sign_artwork(&file_bytes);
+                    
+                    final_headers.insert(
+                        "X-Fanouni-Copyright-Seal",
+                        copyright_sig.parse().unwrap()
+                    );
+                    info!("󰏘  Artwork notarized with seal: {}...", &copyright_sig[0..10]);
+                }
+
+                debug!("the new form = {:#?}", new_form);
+
+                // Rebuild the file part for the backend
+                if !file_bytes.is_empty() {
+                    let mut part = Part::bytes(file_bytes.clone());
+                    if let Some(name) = file_name { part = part.file_name(name); }
+                    if let Some(mime) = file_mime { part = part.mime_str(&mime).unwrap(); }
+                    new_form = new_form.part("file", part);
+                }
+
+                debug!("the new form = {:#?}", new_form);
+
+                // Forward to NestJS
+                let path_query = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("");
+                let target_url = format!("http://127.0.0.1:3000{}", path_query);
+
+                info!("󰅑 End of the Request");
+
+                return forward_multipart(method, target_url, headers, new_form, client).await;
             }
+            Err(_) => return StatusCode::BAD_REQUEST.into_response(),
         }
     }
 
-    let mut final_headers = headers.clone();
-
-    // apply the "Copyright Seal"
-    // FIXME: i should find the right path
-    if uri.path().contains("/api/post/create") && method == Method::POST {
-        // FIXME: should send the file not the body
-        let copyright_sig = sign_artwork(&body);
+    else if content_type.contains("application/json") {
+        let bytes = axum::body::to_bytes(req.into_body(), usize::MAX).await.unwrap_or_default();
         
-        // INFO: NestJS should save this header in the database
-        final_headers.insert(
-            "X-Fanouni-Copyright-Seal", 
-            copyright_sig.parse().unwrap()
-        );
+        match signature {
+            Some(sig) if verify_signature(&bytes, signature.unwrap_or("")) => {
+                info!("  Integrity Verified json request");
+            }
+            _ => {
+                info!("  Signature mismatch or missing!");
+                return (StatusCode::UNAUTHORIZED, "Invalid Integrity Signature").into_response();
+            }
+        }
 
-        info!("󰏘  artwork notarized with seal: {}...", &copyright_sig[0..10]);
-        debug!("final_headers = {:#?}", final_headers);
+        // Redirect to NestJS
+        let target_url = format!("http://127.0.0.1:3000{}", uri.path());
+
+        info!("󰅑 Finish Request");
+        return forward_json(method, target_url, headers, bytes, client).await;
     }
 
-    // Direct to NestJS
-    let response = redirect_to_backend(method, target_url, final_headers, body, client).await;
-    info!("󰅑  Finish Request");
-
-    response
+    (StatusCode::BAD_REQUEST, "the Content-Type header is not supported. Only use one of these ('application/json', 'multipart/form-data')").into_response()
 }

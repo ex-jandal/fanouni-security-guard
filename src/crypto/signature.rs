@@ -1,9 +1,8 @@
-use axum::body::Bytes;
 use ed25519_dalek::{Signature, Signer, SigningKey};
 
 use crate::SIG_KEY;
 
-pub fn sign_artwork(data: &Bytes) -> String {
+pub fn sign_artwork(data: &[u8]) -> String {
     let priv_key_hex = SIG_KEY.as_str(); 
     let priv_key_bytes = hex::decode(priv_key_hex).unwrap();
     

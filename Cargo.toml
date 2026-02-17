@@ -1,6 +1,6 @@
 [package]
-name = "Fanouni-security-guard"
-version = "0.1.0"
+name = "fsg"
+version = "0.3.0"
 edition = "2024"
 authors = ["Sultan Majed"]
 homepage = "https://github.com/ex-jandal/fanouni-security-guard"
